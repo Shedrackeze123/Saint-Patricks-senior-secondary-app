@@ -4,13 +4,20 @@ import os
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = "supersecret123"   # change later if you want
+
+# 🔐 REQUIRED for login sessions
+app.secret_key = "change_this_secret_key_later"
+
+# 🔐 PERMANENT ADMIN CREDENTIALS (FROM RENDER)
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 
 UPLOAD_FOLDER = "static/uploads"
 DATA_FILE = "students.json"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# ----------------- HELPERS -----------------
 def load_students():
     if not os.path.exists(DATA_FILE):
         return []
@@ -21,6 +28,7 @@ def save_students(students):
     with open(DATA_FILE, "w") as f:
         json.dump(students, f, indent=2)
 
+# ----------------- STUDENT REGISTRATION -----------------
 @app.route("/", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -41,18 +49,24 @@ def register():
 
         students.append(student)
         save_students(students)
-        return "Registration submitted successfully!"
+
+        return "Registration submitted successfully! Awaiting approval."
 
     return render_template("register.html")
 
-# 🔐 ADMIN LOGIN
+# ----------------- ADMIN LOGIN -----------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        if request.form["password"] == "admin123":
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session["admin"] = True
             return redirect(url_for("admin"))
-        return "Wrong password!"
+
+        return "Wrong username or password!"
+
     return render_template("login.html")
 
 @app.route("/logout")
@@ -60,10 +74,12 @@ def logout():
     session.pop("admin", None)
     return redirect(url_for("login"))
 
+# ----------------- ADMIN PANEL -----------------
 @app.route("/admin")
 def admin():
     if not session.get("admin"):
         return redirect(url_for("login"))
+
     students = load_students()
     return render_template("admin.html", students=students)
 
@@ -76,6 +92,7 @@ def approve(student_id):
     for s in students:
         if s["id"] == student_id:
             s["status"] = "approved"
+
     save_students(students)
     return redirect(url_for("admin"))
 
@@ -87,7 +104,9 @@ def reject(student_id):
     students = load_students()
     students = [s for s in students if s["id"] != student_id]
     save_students(students)
+
     return redirect(url_for("admin"))
 
+# ----------------- RUN -----------------
 if __name__ == "__main__":
     app.run()
