@@ -1,0 +1,26 @@
+<!DOCTYPE html> <html> <head> 
+    <title>Admin Panel</title>
+</head> <body> <h2>Pending Students</h2> 
+    {% if students %}
+        {% for s in students %} <div 
+            style="border:1px solid 
+            #ccc; padding:10px; 
+            margin:10px;"> 
+                <p><b>Name:</b> {{ 
+                s.name }}</p> 
+                <p><b>Phone:</b> {{ 
+                s.phone }}</p> <img 
+                src="/static/uploads/{{ 
+                s.photo }}" 
+                width="150"><br><br> <a 
+                href="/approve/{{ s.id 
+                }}">✅ Approve</a>
+                |
+                <a href="/reject/{{ s.id 
+                }}">❌ Reject</a>
+            </div> {% endfor %} {% else 
+    %}
+        <p>No pending students.</p> {% 
+    endif %}
+</body>
+</html>

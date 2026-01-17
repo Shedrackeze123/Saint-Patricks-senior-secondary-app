@@ -1,0 +1,111 @@
+@app.route("/")
+def index():
+    return redirect("/register-form")
+from flask import Flask, request, redirect, session, render_template, jsonify
+import os, json
+from werkzeug.utils import secure_filename
+
+app = Flask(__name__)
+app.secret_key = "SPSS_SECRET_KEY"
+
+ADMIN_PIN = "1234"
+UPLOAD_FOLDER = "uploads"
+DATA_FILE = "students.json"
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# ---------- DATA HELPERS ----------
+def load_data():
+    if not os.path.exists(DATA_FILE):
+        return {"pending": [], "approved": []}
+    with open(DATA_FILE, "r") as f:
+        return json.load(f)
+
+def save_data(data):
+    with open(DATA_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+# ---------- ROUTES ----------
+@app.route("/")
+def home():
+    return redirect("/register-form")
+
+@app.route("/register-form")
+def register_form():
+    return render_template("register.html")
+
+@app.route("/register", methods=["POST"])
+def register():
+    name = request.form["name"]
+    phone = request.form["phone"]
+    photo = request.files["photo"]
+
+    filename = secure_filename(photo.filename)
+    photo.save(os.path.join(UPLOAD_FOLDER, filename))
+
+    data = load_data()
+    data["pending"].append({
+        "name": name,
+        "phone": phone,
+        "photo": filename
+    })
+    save_data(data)
+
+    return "Registration submitted. Await admin approval."
+
+# ---------- ADMIN LOGIN ----------
+@app.route("/admin", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        pin = request.form.get("pin")
+        if pin == ADMIN_PIN:
+            session["admin"] = True
+            return redirect("/admin/dashboard")
+        return "Wrong PIN"
+
+    return """
+    <h2>Admin Login</h2>
+    <form method="post">
+        <input type="password" name="pin" placeholder="Enter Admin PIN" required>
+        <button type="submit">Login</button>
+    </form>
+    """
+
+@app.route("/admin/dashboard")
+def admin_dashboard():
+    if not session.get("admin"):
+        return redirect("/admin")
+
+    data = load_data()
+    html = "<h2>Pending Students</h2>"
+
+    for i, s in enumerate(data["pending"]):
+        html += f"""
+        <div>
+            <p><b>{s['name']}</b> - {s['phone']}</p>
+            <img src="/uploads/{s['photo']}" width="120"><br>
+            <a href="/admin/approve/{i}">Approve</a>
+        </div><hr>
+        """
+
+    return html
+
+@app.route("/admin/approve/<int:index>")
+def approve(index):
+    if not session.get("admin"):
+        return redirect("/admin")
+
+    data = load_data()
+    student = data["pending"].pop(index)
+    data["approved"].append(student)
+    save_data(data)
+
+    return redirect("/admin/dashboard")
+
+@app.route("/uploads/<filename>")
+def uploaded_file(filename):
+    return app.send_static_file("../uploads/" + filename)
+
+# ---------- RUN ----------
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0")
