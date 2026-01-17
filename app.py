@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
 import json
 import os
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+app.secret_key = "supersecret123"   # change later if you want
 
 UPLOAD_FOLDER = "static/uploads"
 DATA_FILE = "students.json"
@@ -40,18 +41,37 @@ def register():
 
         students.append(student)
         save_students(students)
-
         return "Registration submitted successfully!"
 
     return render_template("register.html")
 
+# 🔐 ADMIN LOGIN
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        if request.form["password"] == "admin123":
+            session["admin"] = True
+            return redirect(url_for("admin"))
+        return "Wrong password!"
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    session.pop("admin", None)
+    return redirect(url_for("login"))
+
 @app.route("/admin")
 def admin():
+    if not session.get("admin"):
+        return redirect(url_for("login"))
     students = load_students()
     return render_template("admin.html", students=students)
 
 @app.route("/approve/<int:student_id>")
 def approve(student_id):
+    if not session.get("admin"):
+        return redirect(url_for("login"))
+
     students = load_students()
     for s in students:
         if s["id"] == student_id:
@@ -61,6 +81,9 @@ def approve(student_id):
 
 @app.route("/reject/<int:student_id>")
 def reject(student_id):
+    if not session.get("admin"):
+        return redirect(url_for("login"))
+
     students = load_students()
     students = [s for s in students if s["id"] != student_id]
     save_students(students)
