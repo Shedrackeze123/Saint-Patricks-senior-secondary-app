@@ -1,62 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Pending Students</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-        }
-        .student {
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin-bottom: 15px;
-            max-width: 300px;
-        }
-        img {
-            width: 100%;
-            max-width: 250px;
-            margin-top: 10px;
-            border-radius: 5px;
-        }
-        .btn {
-            display: inline-block;
-            padding: 6px 10px;
-            margin-top: 8px;
-            text-decoration: none;
-            color: white;
-            border-radius: 4px;
-        }
-        .approve {
-            background-color: green;
-        }
-        .reject {
-            background-color: red;
-        }
-    </style>
+    <title>Admin Panel</title>
 </head>
 <body>
+<h2>Admin Panel</h2>
 
-<h2>Pending Students</h2>
+<table border="1" cellpadding="10">
+<tr>
+    <th>Photo</th>
+    <th>Name</th>
+    <th>Phone</th>
+    <th>Status</th>
+    <th>Action</th>
+</tr>
 
-{% if students %}
-    {% for student in students %}
-        <div class="student">
-            <strong>{{ student.name }}</strong><br>
-            Phone: {{ student.phone }}<br>
-            Status: {{ student.status }}<br>
+{% for s in students %}
+<tr>
+    <td><img src="/{{ s.photo }}" width="80"></td>
+    <td>{{ s.name }}</td>
+    <td>{{ s.phone }}</td>
+    <td>{{ s.status }}</td>
+    <td>
+        {% if s.status == "pending" %}
+            <a href="/approve/{{ s.id }}">Approve</a> |
+            <a href="/reject/{{ s.id }}">Reject</a>
+        {% else %}
+            ✔ Approved
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
 
-            {% if student.photo %}
-                <img src="{{ url_for('static', filename='uploads/' + student.photo) }}">
-            {% endif %}
-
-            <br>
-            <a class="btn approve" href="/approve/{{ student.id }}">Approve</a>
-            <a class="btn reject" href="/reject/{{ student.id }}">Reject</a>
-        </div>
-    {% endfor %}
-{% else %}
-    <p>No pending students.</p>
-{% endif %}
+</table>
 
 </body>
 </html>

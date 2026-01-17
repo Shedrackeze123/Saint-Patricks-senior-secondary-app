@@ -1,81 +1,70 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, render_template, request, redirect, url_for
+import json
+import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-HTML_FORM = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Student Registration</title>
-    <style>
-        body {
-            font-family: Arial;
-            background: #f4f4f4;
-            padding: 20px;
-        }
-        form {
-            background: white;
-            padding: 20px;
-            max-width: 400px;
-            margin: auto;
-            border-radius: 8px;
-        }
-        input, select, button {
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
-        }
-        button {
-            background: green;
-            color: white;
-            border: none;
-        }
-    </style>
-</head>
-<body>
-    <h2 align="center">Saint Patrick's Senior Secondary School</h2>
+UPLOAD_FOLDER = "static/uploads"
+DATA_FILE = "students.json"
 
-    <form method="POST">
-        <input type="text" name="fullname" placeholder="Full Name" required>
-        
-        <select name="class" required>
-            <option value="">Select Class</option>
-            <option>JSS 1</option>
-            <option>JSS 2</option>
-            <option>JSS 3</option>
-            <option>SS 1</option>
-            <option>SS 2</option>
-            <option>SS 3</option>
-        </select>
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-        <select name="gender" required>
-            <option value="">Gender</option>
-            <option>Male</option>
-            <option>Female</option>
-        </select>
+def load_students():
+    if not os.path.exists(DATA_FILE):
+        return []
+    with open(DATA_FILE, "r") as f:
+        return json.load(f)
 
-        <input type="date" name="dob" required>
-
-        <button type="submit">Register</button>
-    </form>
-</body>
-</html>
-"""
+def save_students(students):
+    with open(DATA_FILE, "w") as f:
+        json.dump(students, f, indent=2)
 
 @app.route("/", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        fullname = request.form["fullname"]
-        student_class = request.form["class"]
-        gender = request.form["gender"]
-        dob = request.form["dob"]
+        students = load_students()
 
-        with open("students.txt", "a") as f:
-            f.write(f"{fullname}, {student_class}, {gender}, {dob}\n")
+        photo = request.files["photo"]
+        filename = secure_filename(photo.filename)
+        photo_path = os.path.join(UPLOAD_FOLDER, filename)
+        photo.save(photo_path)
 
-        return "<h3 align='center'>Registration Successful ✅</h3>"
+        student = {
+            "id": len(students) + 1,
+            "name": request.form["name"],
+            "phone": request.form["phone"],
+            "photo": photo_path,
+            "status": "pending"
+        }
 
-    return render_template_string(HTML_FORM)
+        students.append(student)
+        save_students(students)
+
+        return "Registration submitted successfully!"
+
+    return render_template("register.html")
+
+@app.route("/admin")
+def admin():
+    students = load_students()
+    return render_template("admin.html", students=students)
+
+@app.route("/approve/<int:student_id>")
+def approve(student_id):
+    students = load_students()
+    for s in students:
+        if s["id"] == student_id:
+            s["status"] = "approved"
+    save_students(students)
+    return redirect(url_for("admin"))
+
+@app.route("/reject/<int:student_id>")
+def reject(student_id):
+    students = load_students()
+    students = [s for s in students if s["id"] != student_id]
+    save_students(students)
+    return redirect(url_for("admin"))
 
 if __name__ == "__main__":
     app.run()
