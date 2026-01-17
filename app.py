@@ -1,36 +1,20 @@
-from flask import Flask, request, redirect, url_for, render_template_string
-import os
+from flask import Flask, request, redirect, url_for, session, render_template_string
 
 app = Flask(__name__)
+app.secret_key = "very_secret_key_123"
 
-# Get admin credentials from Render environment variables
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "password")
+# ===== PERMANENT LOGIN DETAILS =====
+USERNAME = "admin"
+PASSWORD = "admin123"
 
-LOGIN_HTML = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Admin Login</title>
-</head>
-<body>
-    <h1>Admin Login</h1>
-    <form method="POST">
-        <label>Username:</label><br>
-        <input type="text" name="username" required><br><br>
-        <label>Password:</label><br>
-        <input type="password" name="password" required><br><br>
-        <button type="submit">Login</button>
-    </form>
-    <p style="color:red;">{{ error }}</p>
-</body>
-</html>
-"""
-
+# ===== HOME ROUTE (PREVENTS 404) =====
 @app.route("/")
 def home():
-    return "App is running ✅ Go to /login"
+    if session.get("logged_in"):
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("login"))
 
+# ===== LOGIN ROUTE =====
 @app.route("/login", methods=["GET", "POST"])
 def login():
     error = ""
@@ -38,12 +22,45 @@ def login():
         username = request.form.get("username")
         password = request.form.get("password")
 
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            return "<h2>Login successful ✅</h2><p>Welcome Admin</p>"
+        if username == USERNAME and password == PASSWORD:
+            session["logged_in"] = True
+            return redirect(url_for("dashboard"))
         else:
             error = "Invalid username or password"
 
-    return render_template_string(LOGIN_HTML, error=error)
+    return render_template_string("""
+        <html>
+        <head><title>Login</title></head>
+        <body>
+            <h2>Login</h2>
+            <form method="post">
+                <input type="text" name="username" placeholder="Username" required><br><br>
+                <input type="password" name="password" placeholder="Password" required><br><br>
+                <button type="submit">Login</button>
+            </form>
+            <p style="color:red;">{{ error }}</p>
+        </body>
+        </html>
+    """, error=error)
 
+# ===== DASHBOARD =====
+@app.route("/dashboard")
+def dashboard():
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+
+    return """
+    <h1>Dashboard</h1>
+    <p>You are logged in successfully ✅</p>
+    <a href="/logout">Logout</a>
+    """
+
+# ===== LOGOUT =====
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+# ===== REQUIRED FOR RENDER =====
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=5000)
