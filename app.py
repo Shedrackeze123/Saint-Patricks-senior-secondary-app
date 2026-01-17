@@ -1,13 +1,12 @@
-from flask import Flask, request, redirect, url_for, session, render_template_string
+from flask import Flask, request, redirect, url_for, render_template_string
 import os
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "fallback-secret")
 
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+# Get admin credentials from Render environment variables
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "password")
 
-# ---------------- LOGIN PAGE ----------------
 LOGIN_HTML = """
 <!DOCTYPE html>
 <html>
@@ -15,20 +14,22 @@ LOGIN_HTML = """
     <title>Admin Login</title>
 </head>
 <body>
-    <h2>Admin Login</h2>
+    <h1>Admin Login</h1>
     <form method="POST">
         <label>Username:</label><br>
         <input type="text" name="username" required><br><br>
-
         <label>Password:</label><br>
         <input type="password" name="password" required><br><br>
-
         <button type="submit">Login</button>
     </form>
     <p style="color:red;">{{ error }}</p>
 </body>
 </html>
 """
+
+@app.route("/")
+def home():
+    return "App is running ✅ Go to /login"
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -38,35 +39,11 @@ def login():
         password = request.form.get("password")
 
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            session["admin"] = True
-            return redirect(url_for("admin"))
+            return "<h2>Login successful ✅</h2><p>Welcome Admin</p>"
         else:
-            error = "Invalid login details"
+            error = "Invalid username or password"
 
     return render_template_string(LOGIN_HTML, error=error)
 
-# ---------------- ADMIN DASHBOARD ----------------
-@app.route("/admin")
-def admin():
-    if not session.get("admin"):
-        return redirect(url_for("login"))
-
-    return """
-    <h1>Admin Dashboard</h1>
-    <p>Login successful ✅</p>
-    <a href="/logout">Logout</a>
-    """
-
-# ---------------- LOGOUT ----------------
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
-
-# ---------------- HOME ----------------
-@app.route("/")
-def home():
-    return redirect(url_for("login"))
-
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
